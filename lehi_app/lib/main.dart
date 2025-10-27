@@ -11,7 +11,7 @@ void main() {
 class EventStorage{
   static Map<DateTime, List<String>> eventsToLoad = {
     DateTime(2025, 10, 31): ["Halloween Parade", "Trick or Treat"],
-    DateTime(2025, 11, 01): ["Day of the Dead Party"],
+    DateTime(2025, 11, 01): ["Halloween Party"],
     DateTime(2025, 11, 18): ["Community Board Meeting"],
     DateTime(2025, 11, 27): ["Thanksgiving Parade"],
   };
@@ -23,7 +23,7 @@ class EventStorage{
     return eventsToLoad[date] ?? [];
   }
 
-  static List<MapEntry<DateTime, String>> upcomingEvents({int count = 5}) {
+  static List<MapEntry<DateTime, String>> upcomingEvents() {
     final now = DateTime.now();
     final eventsList = <MapEntry<DateTime, String>>[];
 
@@ -37,7 +37,27 @@ class EventStorage{
 
     eventsList.sort((a, b) => a.key.compareTo(b.key));
 
-    return eventsList.take(count).toList();}
+    return eventsList.take(5).toList();}
+
+    static Map<DateTimeRange ,List<String>> volunteerEvents = {
+      DateTimeRange(start: DateTime(2025, 11, 01, 18, 00), end: DateTime(2025, 11, 01, 20, 00)): ["Halloween Party"]
+    };
+
+    static List<MapEntry<DateTimeRange, String>> getVolunteerEvents(int number){
+      final eventsList = <MapEntry<DateTimeRange, String>>[];
+
+    volunteerEvents.forEach((date, events) {
+      for (var e in events) {
+    
+          eventsList.add(MapEntry(date, e));
+        
+      }
+    });
+
+    eventsList.sort((a, b) => a.key.start.compareTo(b.key.start));
+
+    return eventsList.take(number).toList();
+    }
 }
 
 class MyApp extends StatelessWidget {
@@ -72,7 +92,7 @@ class MyApp extends StatelessWidget {
                 },
                 child: const Text(
                   'Our Vision',
-                  style: TextStyle(color: Colors.black, fontSize: 16),
+                  style: TextStyle(color: Colors.black, fontSize: 12),
                 ),
               ),
              TextButton(
@@ -84,7 +104,7 @@ class MyApp extends StatelessWidget {
     },
     child: const Text(
       'Contact Us',
-      style: TextStyle(color: Colors.black, fontSize: 16),
+      style: TextStyle(color: Colors.black, fontSize: 12),
     ),
   ),
    TextButton(
@@ -96,7 +116,7 @@ class MyApp extends StatelessWidget {
     },
     child: const Text(
       'Resources',
-      style: TextStyle(color: Colors.black, fontSize: 16),
+      style: TextStyle(color: Colors.black, fontSize: 12),
     ),
   ),
   TextButton(
@@ -108,7 +128,19 @@ class MyApp extends StatelessWidget {
     },
     child: const Text(
       'About Us',
-      style: TextStyle(color: Colors.black, fontSize: 16),
+      style: TextStyle(color: Colors.black, fontSize: 12),
+    ),
+  ),
+  TextButton(
+    onPressed: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const VolunteerSignUpPage()),
+      );
+    },
+    child: const Text(
+      'Volunteer',
+      style: TextStyle(color: Colors.black, fontSize: 12),
     ),
   ),
   TextButton(
@@ -120,7 +152,7 @@ class MyApp extends StatelessWidget {
     },
     child: const Text(
       'Calendar',
-      style: TextStyle(color: Colors.black, fontSize: 16),
+      style: TextStyle(color: Colors.black, fontSize: 12),
     ),
   )
             ],
@@ -885,6 +917,7 @@ class CalendarPage extends StatelessWidget {
             return Column(
               children: [
                 TableCalendar(
+                  eventLoader: (day) => EventStorage._getEventsForDay(day),
                   firstDay: DateTime.utc(2025, 1, 1),
                   lastDay: DateTime.utc(2030, 12, 31),
                   focusedDay: focusedDay,
@@ -946,6 +979,259 @@ class CalendarPage extends StatelessWidget {
     );
   }
 }
+
+class VolunteerSignUpPage extends StatefulWidget {
+  const VolunteerSignUpPage({super.key});
+
+  @override
+  State<VolunteerSignUpPage> createState() => _VolunteerSignUpPageState();
+}
+
+class _VolunteerSignUpPageState extends State<VolunteerSignUpPage> {
+  final formKey = GlobalKey<FormState>();
+
+  final nameController = TextEditingController();
+  final emailController = TextEditingController();
+  final phoneController = TextEditingController();
+
+  String? selectedEventId;
+  String? selectedEventName;
+  String? selectedEventDate;
+  DateTimeRange? selectedEventRange;
+
+  String? selectedStartTime;
+  String? selectedEndTime;
+
+  List<String> availableTimes = [];
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    phoneController.dispose();
+    super.dispose();
+  }
+
+  List<String> generateTimeSlots(DateTimeRange range) {
+    List<String> slots = [];
+    DateTime current = range.start;
+    while (current.isBefore(range.end.add(const Duration(minutes: 1)))) {
+      slots.add(DateFormat.jm().format(current));
+      current = current.add(const Duration(minutes: 30));
+    }
+    return slots;
+  }
+
+  bool allFieldsFilled() {
+    return nameController.text.isNotEmpty &&
+        emailController.text.isNotEmpty &&
+        phoneController.text.isNotEmpty &&
+        selectedEventId != null &&
+        selectedStartTime != null &&
+        selectedEndTime != null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Volunteer Sign Up')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: formKey,
+          child: ListView(
+            children: [
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Select Event',
+                  border: OutlineInputBorder(),
+                ),
+                hint: const Text('Choose an event'),
+                initialValue: selectedEventId,
+                items: EventStorage.getVolunteerEvents(5).map((entry) {
+                  final date = DateFormat('EEE, MMM d, yyyy').format(entry.key.start);
+                  final timeRange =
+                      '${DateFormat.jm().format(entry.key.start)} - ${DateFormat.jm().format(entry.key.end)}';
+                  final eventId = '${entry.key.start.toIso8601String()}_${entry.value}';
+                  return DropdownMenuItem(
+                    value: eventId,
+                    child: Text('$date — ${entry.value} ($timeRange)'),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  final entry = EventStorage.getVolunteerEvents(5).firstWhere(
+                    (e) => '${e.key.start.toIso8601String()}_${e.value}' == value,
+                  );
+                  setState(() {
+                    selectedEventId = value;
+                    selectedEventName = entry.value;
+                    selectedEventDate =
+                        DateFormat('EEE, MMM d, yyyy').format(entry.key.start);
+                    selectedEventRange = entry.key;
+
+                    availableTimes = generateTimeSlots(entry.key);
+                    selectedStartTime = null;
+                    selectedEndTime = null;
+                  });
+                },
+                validator: (value) => value == null ? 'Please select an event' : null,
+              ),
+              const SizedBox(height: 16),
+              if (selectedEventName != null && selectedEventDate != null) ...[
+                Text('Selected Event:', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text('$selectedEventName on $selectedEventDate',
+                    style: Theme.of(context).textTheme.bodyLarge),
+                Text(
+                    'Available time: ${DateFormat.jm().format(selectedEventRange!.start)} - ${DateFormat.jm().format(selectedEventRange!.end)}',
+                    style: Theme.of(context).textTheme.bodyMedium),
+                const SizedBox(height: 16),
+              ],
+             
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Full Name',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => setState(() {}),
+                validator: (value) => value == null || value.isEmpty ? 'Enter your name' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email Address',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                onChanged: (_) => setState(() {}),
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Enter your email';
+                  final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                  if (!emailRegex.hasMatch(value)) return 'Enter a valid email';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.phone,
+                onChanged: (_) => setState(() {}),
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Enter your phone number';
+                  final phoneRegex = RegExp(r'^\+?[0-9]{7,15}$');
+                  if (!phoneRegex.hasMatch(value)) return 'Enter a valid phone number';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      decoration: const InputDecoration(
+                        labelText: 'Start Time',
+                        border: OutlineInputBorder(),
+                      ),
+                      hint: const Text('Select start time'),
+                      initialValue: selectedStartTime,
+                      items: availableTimes.length > 1
+                          ? availableTimes
+                              .sublist(0, availableTimes.length - 1) 
+                              .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                              .toList()
+                          : [],
+                      onChanged: (value) {
+                        setState(() {
+                          selectedStartTime = value;
+                          if (selectedEndTime != null &&
+                              availableTimes.indexOf(selectedEndTime!) <=
+                                  availableTimes.indexOf(selectedStartTime!)) {
+                            selectedEndTime = null;
+                          }
+                        });
+                      },
+                      validator: (value) =>
+                          value == null ? 'Please select start time' : null,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+  child: DropdownButtonFormField<String>(
+    decoration: const InputDecoration(
+      labelText: 'End Time',
+      border: OutlineInputBorder(),
+    ),
+    initialValue: selectedEndTime,
+    items: selectedStartTime == null
+        ? null 
+        : availableTimes
+            .where((t) =>
+                availableTimes.indexOf(t) >
+                availableTimes.indexOf(selectedStartTime!))
+            .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+            .toList(),
+    onChanged: selectedStartTime == null
+        ? null
+        : (value) {
+            setState(() {
+              selectedEndTime = value;
+            });
+          },
+    hint: Text(selectedStartTime == null
+        ? 'Select start time first'
+        : 'Select end time'),
+    validator: (value) =>
+        value == null ? 'Please select end time' : null,
+  ),
+),
+
+                ],
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: allFieldsFilled()
+                    ? () {
+                        if (formKey.currentState!.validate()) {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Thank you!'),
+                              content: const Text(
+                                  'Thanks for volunteering! More info will come shortly.'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.popUntil(context, (route) => route.isFirst),
+                                  child: const Text('Go Home'),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                      }
+                    : null,
+                child: const Text('Submit'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+
+
+
+
+
 
 
 
